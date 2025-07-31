@@ -1,0 +1,4 @@
+#Wed Nov 17 12:52:28 PST 2021
+base.0=C\:\\Users\\raj\\Desktop\\LockerMaps\\build\\app\\intermediates\\dex\\release\\minifyReleaseWithR8\\classes.dex
+renamed.0=classes.dex
+path.0=classes.dex
