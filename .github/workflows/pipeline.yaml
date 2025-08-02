@@ -3,7 +3,7 @@ name: Build Flutter Web and Deploy to /docs (via Token)
 on:
   push:
     branches:
-      - develop  # 👈 This still triggers the action on 'develop'
+      - develop  # 👈 Triggered by pushes to 'develop'
 
 jobs:
   build:
@@ -13,7 +13,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
         with:
-          persist-credentials: false
+          persist-credentials: false  # Needed for custom token use
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -42,9 +42,16 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git remote set-url origin https://x-access-token:${TOKEN}@github.com/${{ github.repository }}
-          git checkout -B dev
+
+          # Fetch and check out dev branch safely
+          git fetch origin dev
+          git checkout dev
+          git pull origin dev
+
+          # Copy new docs content (again, just in case)
+          cp -r build/web/* docs/
+
+          # Commit and push changes
           git add docs
           git commit -m "Deploy Flutter web build to /docs" || echo "No changes to commit"
           git push origin dev
-          
-
