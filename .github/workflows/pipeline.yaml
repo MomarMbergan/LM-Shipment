@@ -1,4 +1,4 @@
-name: Build Flutter Web and Push /docs to dev
+name: Build Flutter Web and Force-Push to /docs on dev
 
 on:
   push:
@@ -29,33 +29,31 @@ jobs:
       - name: Build Flutter Web
         run: flutter build web
 
-      - name: Prepare /docs folder
-        run: |
-          rm -rf docs
-          mkdir docs
-          cp -r build/web/* docs/
-
-      - name: Push /docs to dev branch
+      - name: Push /docs to dev branch (clean replace)
         env:
           TOKEN: ${{ secrets.PERSONAL_TOKEN }}
         run: |
-          # Create a temp worktree for the dev branch
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git remote set-url origin https://x-access-token:${TOKEN}@github.com/${{ github.repository }}
-          
+
+          # Fetch latest dev branch
           git fetch origin dev
-          git worktree add /tmp/dev-worktree dev
 
-          # Copy docs to dev worktree and push
+          # Create temp worktree for clean push
+          git worktree add /tmp/dev-worktree origin/dev
+
+          # Clean old docs and copy new ones
           rm -rf /tmp/dev-worktree/docs
-          cp -r docs /tmp/dev-worktree/
+          mkdir /tmp/dev-worktree/docs
+          cp -r build/web/* /tmp/dev-worktree/docs/
 
+          # Commit and push changes to dev
           cd /tmp/dev-worktree
           git add docs
-          git commit -m "Update Flutter web build in /docs" || echo "No changes to commit"
-          git push origin dev
+          git commit -m "Deploy fresh Flutter web build to /docs" || echo "No changes to commit"
+          git push origin HEAD:dev
 
-          # Clean up
+          # Cleanup
           cd $GITHUB_WORKSPACE
-          git worktree remove /tmp/dev-worktree
+          git worktree remove /tmp/dev-worktree --force
