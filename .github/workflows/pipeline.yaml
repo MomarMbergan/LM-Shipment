@@ -3,7 +3,7 @@ name: Build Flutter Web to /docs
 on:
   push:
     branches:
-      - develop  # Trigger on push to dev branch
+      - dev  # Trigger on push to dev branch
 
 jobs:
   build:
@@ -13,10 +13,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Flutter
+      - name: Setup Flutter with Dart 3.0.0 (via Flutter 3.10.0)
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.0'  # Use your preferred version
+          flutter-version: '3.10.0'
 
       - name: Install dependencies
         run: flutter pub get
