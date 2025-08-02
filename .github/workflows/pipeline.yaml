@@ -1,4 +1,4 @@
-name: Build Flutter Web and Deploy to /docs (same branch)
+name: Build Flutter Web and Deploy to /docs (via Token)
 
 on:
   push:
@@ -10,9 +10,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout repo (without credentials)
         uses: actions/checkout@v4
-        # ⚠️ DO NOT disable credentials if pushing to same branch
+        with:
+          persist-credentials: false  # ⚠️ Required to use personal token
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -34,10 +35,13 @@ jobs:
           mkdir docs
           cp -r build/web/* docs/
 
-      - name: Commit and push changes
+      - name: Commit and Push to develop
+        env:
+          TOKEN: ${{ secrets.PERSONAL_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin https://x-access-token:${TOKEN}@github.com/${{ github.repository }}
           git add docs
           git commit -m "Deploy Flutter web build to /docs" || echo "No changes to commit"
           git push origin develop
