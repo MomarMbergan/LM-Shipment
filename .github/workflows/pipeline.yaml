@@ -1,4 +1,4 @@
-name: Build Flutter Web to /docs (Flutter 1.20.0 / Dart 2.9)
+name: Build Flutter Web and Deploy to /docs (same branch)
 
 on:
   push:
@@ -12,10 +12,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          persist-credentials: true  # Required for pushing
+        # ⚠️ DO NOT disable credentials if pushing to same branch
 
-      - name: Setup Flutter 2.10.5 (Dart >=2.12)
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '2.10.5'
@@ -29,16 +28,16 @@ jobs:
       - name: Build Flutter Web
         run: flutter build web
 
-      - name: Copy build to /docs
+      - name: Prepare /docs folder
         run: |
           rm -rf docs
           mkdir docs
           cp -r build/web/* docs/
 
-      - name: Commit and push changes to develop branch
+      - name: Commit and push changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs
-          git commit -m "Update /docs with Flutter web build" || echo "No changes to commit"
+          git commit -m "Deploy Flutter web build to /docs" || echo "No changes to commit"
           git push origin develop
