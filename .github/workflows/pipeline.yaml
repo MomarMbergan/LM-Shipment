@@ -1,31 +1,19 @@
-name: Build Flutter Web and Deploy to /docs (via Token)
+name: Build Flutter Web and Push /docs to dev
 
 on:
   push:
     branches:
-      - develop  # Trigger only on develop
+      - develop
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
           persist-credentials: false
-
-      - name: Configure Git and Switch to dev
-        env:
-          TOKEN: ${{ secrets.PERSONAL_TOKEN }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin https://x-access-token:${TOKEN}@github.com/${{ github.repository }}
-          
-          git fetch origin dev
-          git checkout dev
-          git pull origin dev
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -47,8 +35,27 @@ jobs:
           mkdir docs
           cp -r build/web/* docs/
 
-      - name: Commit and Push to dev branch
+      - name: Push /docs to dev branch
+        env:
+          TOKEN: ${{ secrets.PERSONAL_TOKEN }}
         run: |
+          # Create a temp worktree for the dev branch
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin https://x-access-token:${TOKEN}@github.com/${{ github.repository }}
+          
+          git fetch origin dev
+          git worktree add /tmp/dev-worktree dev
+
+          # Copy docs to dev worktree and push
+          rm -rf /tmp/dev-worktree/docs
+          cp -r docs /tmp/dev-worktree/
+
+          cd /tmp/dev-worktree
           git add docs
-          git commit -m "Deploy Flutter web build to /docs" || echo "No changes to commit"
+          git commit -m "Update Flutter web build in /docs" || echo "No changes to commit"
           git push origin dev
+
+          # Clean up
+          cd $GITHUB_WORKSPACE
+          git worktree remove /tmp/dev-worktree
