@@ -3,7 +3,7 @@ name: Build Flutter Web to /docs
 on:
   push:
     branches:
-      - dev  # Trigger on push to dev branch
+      - develop  # Trigger on push to dev branch
 
 jobs:
   build:
@@ -37,3 +37,4 @@ jobs:
           git add docs
           git commit -m "Deploy Flutter web build to /docs" || echo "No changes to commit"
           git push origin dev
+
