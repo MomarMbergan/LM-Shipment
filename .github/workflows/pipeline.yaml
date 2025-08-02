@@ -1,4 +1,4 @@
-name: Build Flutter Web and Force-Push to /docs on dev
+name: Build Flutter Web and Deploy to /docs (via Token)
 
 on:
   push:
@@ -6,14 +6,14 @@ on:
       - develop
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repo
         uses: actions/checkout@v4
         with:
-          persist-credentials: false
+          persist-credentials: false  # disable default token
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -27,33 +27,23 @@ jobs:
         run: flutter pub get
 
       - name: Build Flutter Web
-        run: flutter build web
+        run: flutter build web --base-href="/LM-Shipment/"  # 🔥 Important for GitHub Pages
 
-      - name: Push /docs to dev branch (clean replace)
+      - name: Clone dev branch and clean docs/
         env:
           TOKEN: ${{ secrets.PERSONAL_TOKEN }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin https://x-access-token:${TOKEN}@github.com/${{ github.repository }}
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Fetch latest dev branch
-          git fetch origin dev
+          # Clone the repo with token
+          git clone --branch dev https://x-access-token:${TOKEN}@github.com/${{ github.repository }} temp
 
-          # Create temp worktree for clean push
-          git worktree add /tmp/dev-worktree origin/dev
+          cd temp
+          rm -rf docs
+          mkdir docs
+          cp -r ../build/web/* docs/
 
-          # Clean old docs and copy new ones
-          rm -rf /tmp/dev-worktree/docs
-          mkdir /tmp/dev-worktree/docs
-          cp -r build/web/* /tmp/dev-worktree/docs/
-
-          # Commit and push changes to dev
-          cd /tmp/dev-worktree
           git add docs
-          git commit -m "Deploy fresh Flutter web build to /docs" || echo "No changes to commit"
-          git push origin HEAD:dev
-
-          # Cleanup
-          cd $GITHUB_WORKSPACE
-          git worktree remove /tmp/dev-worktree --force
+          git commit -m "Clean and redeploy Flutter web to /docs" || echo "No changes to commit"
+          git push origin dev
