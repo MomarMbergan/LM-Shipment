@@ -51,6 +51,58 @@
       width: auto;
       object-fit: contain;
     }
+
+    /* API panel styles */
+    main.api-panel {
+      margin-top: 90px; /* leave space for fixed header */
+      padding: 20px;
+      box-sizing: border-box;
+      color: #222;
+    }
+
+    .api-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .api-controls input[type="text"] {
+      flex: 1 1 420px;
+      padding: 8px 10px;
+      font-size: 14px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    .api-controls button {
+      padding: 8px 12px;
+      font-size: 14px;
+      border-radius: 4px;
+      border: 1px solid #0a66c2;
+      background: #0a66c2;
+      color: white;
+      cursor: pointer;
+    }
+
+    pre#api-output {
+      background: #f6f8fa;
+      border: 1px solid #e1e4e8;
+      padding: 12px;
+      border-radius: 6px;
+      max-height: 60vh;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .note {
+      font-size: 13px;
+      color: #555;
+    }
   </style>
 </head>
 <body style="position: fixed; inset: 0px; overflow: hidden; padding: 0px; margin: 0px; user-select: none; touch-action: none; font: 14px sans-serif; color: red;">
@@ -58,6 +110,26 @@
   <header>
     <img src="1788143336321.png" alt="Logo">
   </header>
+
+  <!-- API panel: fetch and show WADL (XML) -->
+  <main class="api-panel">
+    <h2>Fetch WADL (XML) and display formatted response</h2>
+    <div class="api-controls">
+      <input id="api-url" type="text" value="https://sscweb.gsfc.nasa.gov/WS/sscr/2/application.wadl" />
+      <button id="fetch-btn">Fetch WADL</button>
+      <button id="clear-btn" type="button">Clear</button>
+    </div>
+    <div class="note">Click "Fetch WADL" to retrieve the WADL description. If the request fails due to CORS, see the note below.</div>
+    <h3>Response (formatted XML)</h3>
+    <pre id="api-output" aria-live="polite"></pre>
+
+    <details style="margin-top:12px; max-width:900px;">
+      <summary>Why the fetch might fail in the browser</summary>
+      <p class="note">The remote server must allow cross-origin requests (CORS) for client-side fetch() to succeed. If you see a CORS error in the console, run the request from a server (server-side proxy) or use a CORS-enabled proxy during development.</p>
+      <p class="note">Example server-side curl (works regardless of CORS):</p>
+      <pre class="note">curl "https://sscweb.gsfc.nasa.gov/WS/sscr/2/application.wadl" | xmllint --format -</pre>
+    </details>
+  </main>
 
   <!-- This script installs service_worker.js to provide PWA functionality to
        application. For more information, see:
@@ -126,8 +198,82 @@
       loadMainDartJs();
     }
   </script>
+
+  <script>
+    // Simple XML pretty printer. Not perfect but good enough for small documents.
+    function formatXml(xml) {
+      // Remove extra whitespace between tags
+      var formatted = '';
+      var reg = /(>)(<)(\/?)/g;
+      xml = xml.replace(/>\s*</g, '><');
+      var pad = 0;
+      // add line breaks
+      xml = xml.replace(reg, '\n$1$2$3');
+      var lines = xml.split('\n');
+      for (var i = 0; i < lines.length; i++) {
+        var line = lines[i];
+        if (line.match(/<[^\/].*?>.*<\//)) {
+          // single line element <a>...</a>
+          formatted += '  '.repeat(pad) + line + '\n';
+        } else if (line.match(/<\//)) {
+          pad = Math.max(pad - 1, 0);
+          formatted += '  '.repeat(pad) + line + '\n';
+        } else if (line.match(/<[^!].*?>/)) {
+          formatted += '  '.repeat(pad) + line + '\n';
+          if (!line.match(/<.*\/>$/)) {
+            pad++;
+          }
+        } else {
+          if (line.trim() !== '') {
+            formatted += '  '.repeat(pad) + line + '\n';
+          }
+        }
+      }
+      return formatted.trim();
+    }
+
+    async function fetchApi() {
+      var out = document.getElementById('api-output');
+      var url = document.getElementById('api-url').value.trim();
+      out.textContent = 'Fetching ' + url + ' ...';
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        const resp = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (!resp.ok) {
+          out.textContent = 'HTTP error: ' + resp.status + ' ' + resp.statusText;
+          return;
+        }
+        const text = await resp.text();
+        // Try to pretty-print as XML
+        let pretty = text;
+        try {
+          pretty = formatXml(text);
+        } catch (e) {
+          console.warn('Formatting failed, using raw text', e);
+        }
+        out.textContent = pretty;
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          out.textContent = 'Request timed out (15s)';
+        } else {
+          out.textContent = 'Fetch error: ' + err.message + '\nSee browser console for details.';
+          console.error(err);
+        }
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      document.getElementById('fetch-btn').addEventListener('click', fetchApi);
+      document.getElementById('clear-btn').addEventListener('click', function () {
+        document.getElementById('api-output').textContent = '';
+      });
+    });
+  </script>
+
   <picture id="splash">
-    <source srcset="splash/img/light-1x.png 1x, splash/img/light-2x.png 2x, splash/img/light-3x.png 3x, splash/img/light-4x.png 4x" media="(prefers-color-scheme: light) or (prefers-color-scheme: no-pr[...]
+    <source srcset="splash/img/light-1x.png 1x, splash/img/light-2x.png 2x, splash/img/light-3x.png 3x, splash/img/light-4x.png 4x" media="(prefers-color-scheme: light) or (prefers-color-scheme: no-preference)">
     <source srcset="splash/img/dark-1x.png 1x, splash/img/dark-2x.png 2x, splash/img/dark-3x.png 3x, splash/img/dark-4x.png 4x" media="(prefers-color-scheme: dark)">
     <img class="center" src="splash/img/light-1x.png" />
   </picture>
