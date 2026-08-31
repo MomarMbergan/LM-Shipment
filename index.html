@@ -86,7 +86,21 @@
       cursor: pointer;
     }
 
-    pre#api-output {
+    .secondary {
+      background: #fff;
+      color: #0a66c2;
+      border-color: #0a66c2;
+    }
+
+    .views {
+      display: flex;
+      gap: 12px;
+      margin-top: 12px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    pre#api-output, pre#api-json {
       background: #f6f8fa;
       border: 1px solid #e1e4e8;
       padding: 12px;
@@ -97,6 +111,8 @@
       word-break: break-word;
       font-size: 13px;
       line-height: 1.4;
+      width: 100%;
+      box-sizing: border-box;
     }
 
     .note {
@@ -111,17 +127,28 @@
     <img src="1788143336321.png" alt="Logo">
   </header>
 
-  <!-- API panel: fetch and show WADL (XML) -->
+  <!-- API panel: fetch and show WADL (XML) and structured data -->
   <main class="api-panel">
-    <h2>Fetch WADL (XML) and display formatted response</h2>
+    <h2>Fetch WADL and produce structured data</h2>
     <div class="api-controls">
       <input id="api-url" type="text" value="https://sscweb.gsfc.nasa.gov/WS/sscr/2/application.wadl" />
       <button id="fetch-btn">Fetch WADL</button>
+      <button id="show-json-btn" class="secondary" type="button">Show JSON</button>
+      <button id="download-json-btn" class="secondary" type="button">Download JSON</button>
       <button id="clear-btn" type="button">Clear</button>
     </div>
-    <div class="note">Click "Fetch WADL" to retrieve the WADL description. If the request fails due to CORS, see the note below.</div>
-    <h3>Response (formatted XML)</h3>
-    <pre id="api-output" aria-live="polite"></pre>
+    <div class="note">Click "Fetch WADL" to retrieve the WADL description. The page will parse the WADL into a structured JSON object (resources, methods, params) and show both the formatted XML and JSON. If the request fails due to CORS, see the note below.</div>
+
+    <div class="views">
+      <div style="flex:1 1 480px; min-width: 320px;">
+        <h3>Response (formatted XML)</h3>
+        <pre id="api-output" aria-live="polite"></pre>
+      </div>
+      <div style="flex:1 1 420px; min-width: 320px;">
+        <h3>Parsed JSON data</h3>
+        <pre id="api-json" aria-live="polite">// JSON result will appear here after fetch</pre>
+      </div>
+    </div>
 
     <details style="margin-top:12px; max-width:900px;">
       <summary>Why the fetch might fail in the browser</summary>
@@ -232,10 +259,98 @@
       return formatted.trim();
     }
 
+    // Convert XML DOM to a structured JS object specifically for WADL.
+    function parseWadl(xmlDoc) {
+      var nsResolver = function(prefix) {
+        var ns = {
+          'wadl': xmlDoc.documentElement.namespaceURI || ''
+        };
+        return ns[prefix] || null;
+      };
+
+      var resources = [];
+      // <resources base="..."> contains <resource> children
+      var resourcesNodes = xmlDoc.getElementsByTagName('resources');
+      for (var r = 0; r < resourcesNodes.length; r++) {
+        var resNode = resourcesNodes[r];
+        var base = resNode.getAttribute('base') || null;
+        var resourceElems = resNode.getElementsByTagName('resource');
+        for (var i = 0; i < resourceElems.length; i++) {
+          var re = resourceElems[i];
+          // Only top-level resource under this resources node (avoid nested duplicates)
+          if (re.parentNode !== resNode && re.parentNode.tagName !== 'resources') continue;
+          var resource = {
+            path: re.getAttribute('path') || null,
+            methods: []
+          };
+          // methods inside resource
+          var methodElems = re.getElementsByTagName('method');
+          for (var m = 0; m < methodElems.length; m++) {
+            var me = methodElems[m];
+            // ensure the method belongs directly to this resource (not nested deeper)
+            if (me.parentNode !== re) continue;
+            var method = {
+              name: me.getAttribute('name') || null,
+              id: me.getAttribute('id') || null,
+              request: {
+                params: []
+              },
+              responses: []
+            };
+
+            // request/param
+            var reqElems = me.getElementsByTagName('request');
+            for (var reqi = 0; reqi < reqElems.length; reqi++) {
+              var reqEl = reqElems[reqi];
+              if (reqEl.parentNode !== me) continue;
+              var params = reqEl.getElementsByTagName('param');
+              for (var p = 0; p < params.length; p++) {
+                var pe = params[p];
+                if (pe.parentNode !== reqEl) continue;
+                method.request.params.push({
+                  name: pe.getAttribute('name') || null,
+                  style: pe.getAttribute('style') || null,
+                  type: pe.getAttribute('type') || null,
+                  required: pe.getAttribute('required') || null,
+                  default: pe.getAttribute('default') || null
+                });
+              }
+            }
+
+            // responses
+            var respElems = me.getElementsByTagName('response');
+            for (var ri = 0; ri < respElems.length; ri++) {
+              var relem = respElems[ri];
+              if (relem.parentNode !== me) continue;
+              var resp = { status: relem.getAttribute('status') || null, representations: [] };
+              var reps = relem.getElementsByTagName('representation');
+              for (var repi = 0; repi < reps.length; repi++) {
+                var rnode = reps[repi];
+                if (rnode.parentNode !== relem) continue;
+                resp.representations.push({
+                  mediaType: rnode.getAttribute('mediaType') || null,
+                  element: rnode.getAttribute('element') || null
+                });
+              }
+              method.responses.push(resp);
+            }
+
+            resource.methods.push(method);
+          }
+
+          resources.push({ base: base, resource: resource });
+        }
+      }
+
+      return { resources: resources };
+    }
+
     async function fetchApi() {
       var out = document.getElementById('api-output');
+      var outJson = document.getElementById('api-json');
       var url = document.getElementById('api-url').value.trim();
       out.textContent = 'Fetching ' + url + ' ...';
+      outJson.textContent = '';
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000);
@@ -246,7 +361,7 @@
           return;
         }
         const text = await resp.text();
-        // Try to pretty-print as XML
+        // display formatted XML
         let pretty = text;
         try {
           pretty = formatXml(text);
@@ -254,6 +369,30 @@
           console.warn('Formatting failed, using raw text', e);
         }
         out.textContent = pretty;
+
+        // Parse XML into DOM and convert to structured data
+        try {
+          var parser = new DOMParser();
+          var xmlDoc = parser.parseFromString(text, 'application/xml');
+          // check for parseerror
+          var parseError = xmlDoc.getElementsByTagName('parsererror');
+          if (parseError.length > 0) {
+            console.warn('XML parse error, returning raw text as JSON message');
+            outJson.textContent = JSON.stringify({ raw: text }, null, 2);
+            return;
+          }
+
+          var data = parseWadl(xmlDoc);
+          // attach also the raw XML string if needed later
+          data._raw = text;
+
+          outJson.textContent = JSON.stringify(data, null, 2);
+          // store the latest fetched data object for download or further processing
+          window._latestApiData = data;
+        } catch (e) {
+          console.error('Failed to parse XML to JSON', e);
+          outJson.textContent = JSON.stringify({ error: 'Failed to parse XML', message: e.message }, null, 2);
+        }
       } catch (err) {
         if (err.name === 'AbortError') {
           out.textContent = 'Request timed out (15s)';
@@ -264,10 +403,31 @@
       }
     }
 
+    function downloadJson() {
+      var data = window._latestApiData || { message: 'No data fetched yet' };
+      var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'wadl-data.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
       document.getElementById('fetch-btn').addEventListener('click', fetchApi);
       document.getElementById('clear-btn').addEventListener('click', function () {
         document.getElementById('api-output').textContent = '';
+        document.getElementById('api-json').textContent = '';
+        window._latestApiData = null;
+      });
+      document.getElementById('download-json-btn').addEventListener('click', downloadJson);
+      document.getElementById('show-json-btn').addEventListener('click', function () {
+        // toggle visibility by focusing the JSON pre and scrolling into view
+        var j = document.getElementById('api-json');
+        j.scrollIntoView({ behavior: 'smooth', block: 'center' });
       });
     });
   </script>
